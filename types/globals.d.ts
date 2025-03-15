@@ -4,19 +4,14 @@ export declare global {
   type Shape = "line" | "circle" | "rect" | "image";
   type CtxMode = "eraser" | "draw" | "select";
 
-  interface CtxOptions {
+  type CtxOptions = {
+    lineColor: string;
     lineWidth: number;
-    lineColor: RgbaColor;
-    fillColor: RgbaColor;
-    shape: Shape;
-    mode: CtxMode;
-    selection: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    } | null;
-  }
+    fillColor: string;
+    shape: string; // or a more specific type like 'circle' | 'rectangle'
+    mode: string; // or a more specific type like 'draw' | 'erase'
+    selection: boolean;
+  };
 
   interface Move {
     circle: {
