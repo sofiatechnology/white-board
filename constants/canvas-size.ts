@@ -1,4 +1,4 @@
 export const CANVAS_SIZE = {
-  width: 4000,
-  height: 2000,
+  width: 5000,
+  height: 5000,
 };

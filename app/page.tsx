@@ -1,183 +1,377 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { BiEraser, BiTrash, BiPencil } from "react-icons/bi";
-import { FaRegHandPointUp } from "react-icons/fa";
+// import { useState } from "react";
+// import { Canvas } from "@/components/canvas";
+// import { Toolbar } from "@/components/toolbar";
+// import { useViewportSize } from "@/hooks/use-viewport-size";
+// import { CANVAS_SIZE } from "@/constants/canvas-size";
+// import { COLORS } from "@/constants/colors";
 
-export default function Home() {
+// export default function Whiteboard() {
+//   const { width, height } = useViewportSize();
+//   const [scale, setScale] = useState(1);
+//   const [offset, setOffset] = useState({ x: 0, y: 0 });
+//   const [selectedColor, setSelectedColor] = useState(COLORS.BLACK);
+//   const [lineWidth, setLineWidth] = useState(2);
+//   const [tool, setTool] = useState<"pen" | "eraser" | "text">("pen");
+//   const [isDrawing, setIsDrawing] = useState(false);
+//   const [textInput, setTextInput] = useState("");
+//   const [textPosition, setTextPosition] = useState<{
+//     x: number;
+//     y: number;
+//   } | null>(null);
+//   const [fontSize, setFontSize] = useState(24);
+
+//   const handleZoom = (factor: number) => {
+//     setScale((prev) => Math.min(Math.max(prev * factor, 0.1), 5));
+//   };
+
+//   const handleClearCanvas = () => {
+//     const canvas = document.querySelector("canvas");
+//     const ctx = canvas?.getContext("2d");
+//     if (ctx) {
+//       ctx.clearRect(0, 0, CANVAS_SIZE.width, CANVAS_SIZE.height);
+//     }
+//   };
+
+//   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+//     if (tool === "text") {
+//       const rect = e.currentTarget.getBoundingClientRect();
+//       const x = (e.clientX - rect.left - offset.x) / scale;
+//       const y = (e.clientY - rect.top - offset.y) / scale;
+//       setTextPosition({ x, y });
+//       setTextInput("");
+//     } else {
+//       const rect = e.currentTarget.getBoundingClientRect();
+//       const x = (e.clientX - rect.left - offset.x) / scale;
+//       const y = (e.clientY - rect.top - offset.y) / scale;
+//       setIsDrawing(true);
+//       // Start drawing logic here
+//     }
+//   };
+
+//   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+//     if (isDrawing && tool !== "text") {
+//       const rect = e.currentTarget.getBoundingClientRect();
+//       const x = (e.clientX - rect.left - offset.x) / scale;
+//       const y = (e.clientY - rect.top - offset.y) / scale;
+//       // Draw logic here
+//     }
+//   };
+
+//   const handleMouseUp = () => {
+//     if (isDrawing) {
+//       setIsDrawing(false);
+//       // End drawing logic here
+//     }
+//   };
+
+//   const handleMouseLeave = () => {
+//     if (isDrawing) {
+//       setIsDrawing(false);
+//       // End drawing logic here
+//     }
+//   };
+
+//   const handleTextInput = (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+//     if (tool !== "text" || !textPosition) return;
+
+//     if (e.key === "Enter") {
+//       const canvas = document.querySelector("canvas");
+//       const ctx = canvas?.getContext("2d");
+//       if (ctx) {
+//         ctx.font = `${fontSize}px Arial`;
+//         ctx.fillStyle = selectedColor;
+//         ctx.fillText(textInput, textPosition.x, textPosition.y);
+//       }
+//       setTextInput("");
+//       setTextPosition(null);
+//     } else if (e.key === "Backspace") {
+//       setTextInput((prev) => prev.slice(0, -1));
+//     } else if (e.key.length === 1) {
+//       setTextInput((prev) => prev + e.key);
+//     }
+//   };
+
+//   return (
+//     <main className="flex min-h-screen flex-col items-center justify-between p-4">
+//       <Toolbar
+//         tool={tool}
+//         selectedColor={selectedColor}
+//         onToolChange={setTool}
+//         onColorChange={setSelectedColor}
+//         onClearCanvas={handleClearCanvas}
+//         onZoom={handleZoom}
+//       />
+//       <div
+//         className="relative overflow-hidden w-full h-full border rounded-lg"
+//         style={{
+//           width: width - 32,
+//           height: height - 100,
+//         }}
+//       >
+//         <Canvas
+//           tool={tool}
+//           selectedColor={selectedColor}
+//           lineWidth={lineWidth}
+//           scale={scale}
+//           offset={offset}
+//           onMouseDown={handleMouseDown}
+//           onMouseMove={handleMouseMove}
+//           onMouseUp={handleMouseUp}
+//           onMouseLeave={handleMouseLeave}
+//           onTextInput={handleTextInput}
+//           textPosition={textPosition}
+//           textInput={textInput}
+//           fontSize={fontSize}
+//         />
+//       </div>
+//     </main>
+//   );
+// }
+
+// "use client";
+
+import { useRef, useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { CANVAS_SIZE } from "@/constants/canvas-size";
+import { COLORS } from "@/constants/colors";
+import { useDraw } from "@/hooks/drawing";
+import dynamic from "next/dynamic";
+
+// Create a client-side only version of the component
+const WhiteboardComponent = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [isPanning, setIsPanning] = useState(false);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [startPan, setStartPan] = useState({ x: 0, y: 0 });
-  const [scale, setScale] = useState(1);
-  const [handMode, setHandMode] = useState(false);
-  const [options, setOptions] = useState({
-    lineWidth: 5,
-    lineColor: { r: 0, g: 0, b: 0, a: 1 },
-    mode: "draw",
-  });
+
+  // Move window access to useEffect
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-      canvas.width = 3000; // Large virtual canvas
-      canvas.height = 3000;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.lineCap = "round";
-        ctxRef.current = ctx;
-        redrawCanvas();
-      }
-    }
+    // Now we safely access window
+    setDimensions({
+      width: window.innerWidth - 32,
+      height: window.innerHeight - 60,
+    });
+
+    const handleResize = () => {
+      setDimensions({
+        width: window.innerWidth - 32,
+        height: window.innerHeight - 60,
+      });
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  useEffect(() => {
-    if (ctxRef.current) {
-      ctxRef.current.lineWidth = options.lineWidth;
-      const { r, g, b, a } = options.lineColor;
-      ctxRef.current.strokeStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
-    }
-  }, [options]);
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [selectedColor, setSelectedColor] = useState(COLORS.BLACK);
+  const [lineWidth, setLineWidth] = useState(2);
+  const [tool, setTool] = useState<"pen" | "eraser" | "text">("pen");
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [textInput, setTextInput] = useState("");
+  const [textPosition, setTextPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [fontSize, setFontSize] = useState(24);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (handMode) {
-      setIsPanning(true);
-      setStartPan({ x: e.clientX - offset.x, y: e.clientY - offset.y });
-    } else if (e.button === 0) {
-      setIsDrawing(true);
-      ctxRef.current?.beginPath();
-      ctxRef.current?.moveTo(
-        (e.clientX - offset.x) / scale,
-        (e.clientY - offset.y) / scale
-      );
+  useEffect(() => {
+    if (canvasRef.current) {
+      const canvas = canvasRef.current;
+      canvas.width = CANVAS_SIZE.width;
+      canvas.height = CANVAS_SIZE.height;
+
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctxRef.current = ctx;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = selectedColor;
+        ctx.lineWidth = lineWidth;
+      }
+    }
+  }, [selectedColor, lineWidth]);
+
+  const { handleStartDrawing, handleEndDrawing, handleDraw } = useDraw(
+    {
+      lineColor: selectedColor,
+      lineWidth,
+      fillColor: "transparent", // or any default value
+      shape: "line", // or any default value
+      mode: "draw", // or any default value
+      selection: false,
+    },
+    ctxRef.current!
+  );
+
+  const clearCanvas = () => {
+    if (canvasRef.current && ctxRef.current) {
+      ctxRef.current.clearRect(0, 0, CANVAS_SIZE.width, CANVAS_SIZE.height);
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDrawing && ctxRef.current) {
-      ctxRef.current.lineTo(
-        (e.clientX - offset.x) / scale,
-        (e.clientY - offset.y) / scale
-      );
-      ctxRef.current.stroke();
+  const handleZoom = (factor: number) => {
+    setScale((prev) => Math.min(Math.max(prev * factor, 0.1), 5));
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (tool === "text") {
+      // Handle text tool click
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = (e.clientX - rect.left - offset.x) / scale;
+      const y = (e.clientY - rect.top - offset.y) / scale;
+      setTextPosition({ x, y });
+      setTextInput("");
+    } else {
+      // Handle drawing tools
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = (e.clientX - rect.left - offset.x) / scale;
+      const y = (e.clientY - rect.top - offset.y) / scale;
+      setIsDrawing(true);
+      handleStartDrawing(x, y);
     }
-    if (isPanning) {
-      setOffset({ x: e.clientX - startPan.x, y: e.clientY - startPan.y });
-      redrawCanvas();
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isDrawing && tool !== "text") {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = (e.clientX - rect.left - offset.x) / scale;
+      const y = (e.clientY - rect.top - offset.y) / scale;
+      handleDraw(x, y);
     }
   };
 
   const handleMouseUp = () => {
-    setIsDrawing(false);
-    setIsPanning(false);
-    ctxRef.current?.closePath();
-  };
-
-  const handleWheel = (e: React.WheelEvent) => {
-    const zoomFactor = 1.1;
-    const newScale = e.deltaY < 0 ? scale * zoomFactor : scale / zoomFactor;
-    setScale(newScale);
-    redrawCanvas();
-  };
-
-  const redrawCanvas = () => {
-    const canvas = canvasRef.current;
-    if (canvas && ctxRef.current) {
-      const ctx = ctxRef.current;
-      ctx.setTransform(scale, 0, 0, scale, offset.x, offset.y);
+    if (isDrawing) {
+      setIsDrawing(false);
+      handleEndDrawing();
     }
   };
 
-  const clearCanvas = () => {
-    if (canvasRef.current && ctxRef.current) {
-      ctxRef.current.resetTransform();
-      ctxRef.current.clearRect(
-        0,
-        0,
-        canvasRef.current.width,
-        canvasRef.current.height
-      );
+  const handleTextInput = (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+    if (tool !== "text" || !textPosition || !ctxRef.current) return;
+
+    if (e.key === "Enter") {
+      // Render text on canvas
+      ctxRef.current.font = `${fontSize}px Arial`;
+      ctxRef.current.fillStyle = selectedColor;
+      ctxRef.current.fillText(textInput, textPosition.x, textPosition.y);
+
+      // Reset text input and position
+      setTextInput("");
+      setTextPosition(null);
+    } else if (e.key === "Backspace") {
+      setTextInput((prev) => prev.slice(0, -1));
+    } else if (e.key.length === 1) {
+      setTextInput((prev) => prev + e.key);
     }
   };
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-background text-background">
-      <canvas
-        ref={canvasRef}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
-        onContextMenu={(e) => e.preventDefault()}
-        className={`absolute top-0 left-0 cursor-${
-          handMode ? "grab" : "crosshair"
-        }`}
-        style={{ width: "3000px", height: "3000px" }}
-      />
-      <div className="flex gap-2 items-center mt-4 p-2 border border-border rounded-lg fixed bottom-4 left-1/2 transform -translate-x-1/2">
+    <main className="flex min-h-screen flex-col items-center justify-between bg-background text-foreground">
+      <div className="absolute bottom-4 left-auto right-auto flex gap-2 bg-background p-2 rounded-lg border border-border z-10">
+        <div className="flex gap-2">
+          {Object.values(COLORS).map((color) => (
+            <button
+              key={color}
+              className={`w-8 h-8 rounded-full ${
+                selectedColor === color ? "ring-2 ring-black" : ""
+              }`}
+              style={{ backgroundColor: color }}
+              onClick={() => setSelectedColor(color)}
+            />
+          ))}
+        </div>
+        <div className="border-l mx-2" />
         <Button
-          variant={handMode ? "secondary" : "outline"}
-          onClick={() => setHandMode(!handMode)}
+          variant="outline"
+          size="icon"
+          onClick={() => setTool("pen")}
+          className={tool === "pen" ? "bg-accent" : ""}
         >
-          <FaRegHandPointUp color="#000" />
-        </Button>
-        <Button
-          variant="ghost"
-          onClick={() =>
-            setOptions({
-              ...options,
-              mode: "draw",
-              lineWidth: 5,
-              lineColor: { r: 0, g: 0, b: 0, a: 1 },
-            })
-          }
-        >
-          <BiPencil color="#000" />
+          ✏️
         </Button>
         <Button
-          variant="ghost"
-      
-          onClick={() =>
-            setOptions({
-              ...options,
-              mode: "erase",
-              lineWidth: 10,
-              lineColor: { r: 255, g: 255, b: 255, a: 1 },
-            })
-          }
+          variant="outline"
+          size="icon"
+          onClick={() => setTool("eraser")}
+          className={tool === "eraser" ? "bg-accent" : ""}
         >
-          <BiEraser color="#000" />
+          🧹
         </Button>
-        <Button variant="ghost" onClick={clearCanvas}>
-          <BiTrash color="#000" />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setTool("text")}
+          className={tool === "text" ? "bg-accent" : ""}
+        >
+          T
         </Button>
-        <input
-          type="color"
-          onChange={(e) =>
-            setOptions({
-              ...options,
-              lineColor: {
-                r: parseInt(e.target.value.slice(1, 3), 16),
-                g: parseInt(e.target.value.slice(3, 5), 16),
-                b: parseInt(e.target.value.slice(5, 7), 16),
-                a: 1,
-              },
-            })
-          }
-        />
+        <Button variant="outline" size="icon" onClick={clearCanvas}>
+          🗑️
+        </Button>
+        <div className="border-l mx-2" />
+        <Button variant="outline" size="icon" onClick={() => handleZoom(1.2)}>
+          🔍+
+        </Button>
+        <Button variant="outline" size="icon" onClick={() => handleZoom(0.8)}>
+          🔍-
+        </Button>
+        <div className="border-l mx-2" />
         <input
           type="range"
-          min="1"
-          max="20"
-          value={options.lineWidth}
-          onChange={(e) =>
-            setOptions({ ...options, lineWidth: parseInt(e.target.value) })
-          }
+          min="12"
+          max="72"
+          value={fontSize}
+          onChange={(e) => setFontSize(Number(e.target.value))}
+          className="w-24"
         />
       </div>
-    </div>
+      <div
+        className="relative overflow-hidden w-full h-full rounded-lg"
+        style={{
+          width: dimensions.width,
+          height: dimensions.height,
+        }}
+      >
+        <canvas
+          ref={canvasRef}
+          style={{
+            transform: `scale(${scale}) translate(${offset.x}px, ${offset.y}px)`,
+            transformOrigin: "0 0",
+          }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp} // Stop drawing if mouse leaves canvas
+          onKeyDown={handleTextInput}
+          tabIndex={0} // Make canvas focusable for keyboard events
+          className="bg-background"
+        />
+        {tool === "text" && textPosition && (
+          <div
+            style={{
+              position: "absolute",
+              left: `${textPosition.x * scale + offset.x}px`,
+              top: `${textPosition.y * scale + offset.y}px`,
+              fontSize: `${fontSize * scale}px`,
+              color: selectedColor,
+              pointerEvents: "none",
+            }}
+          >
+            {textInput}
+          </div>
+        )}
+      </div>
+    </main>
   );
-}
+};
+
+// Create a wrapper component that dynamically imports the client component
+const Whiteboard = dynamic(() => Promise.resolve(WhiteboardComponent), {
+  ssr: false, // Disable server-side rendering
+});
+
+export default Whiteboard;
